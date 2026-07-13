@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboard — BF Suma with Team Vitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-active="leaderboard">
+<div style="min-height:100vh;display:flex;flex-direction:column" id="root"></div>
+
+<script type="module">
+import { BRAND, renderDashHeader, getMember, getLeaderboard, initials, esc } from './app.js';
+const AUTH='bfsuma-demo-auth';
+try{ if(localStorage.getItem(AUTH)!=='1'){ location.href='dashboard.html'; } }catch(e){}
+const root=document.getElementById('root');
+const tints=[{bg:'var(--brand-50)',fg:'var(--brand-700)'},{bg:'var(--sky-50)',fg:'var(--sky-700)'},{bg:'var(--earth-50)',fg:'var(--earth-700)'},{bg:'#fdecf3',fg:'var(--accent-berry)'}];
+const rankBg=['var(--accent-sun)','var(--slate-400)','var(--earth-500)'];
+
+async function load(){
+  root.innerHTML=`<div id="dash-hd"></div><main class="bf-container" style="padding:40px 0"><p style="color:var(--slate-400);font-size:.875rem">Loading leaderboard…</p></main>`;
+  const [member,all]=await Promise.all([getMember(),getLeaderboard()]);
+  document.getElementById('dash-hd').innerHTML=renderDashHeader('leaderboard',initials(member.name));
+  document.getElementById('logout-btn')?.addEventListener('click',()=>{ try{ localStorage.setItem(AUTH,'0'); }catch(e){} location.href='dashboard.html'; });
+
+  const podium=all.slice(0,3).map((l,i)=>{
+    const t=tints[i%tints.length];
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;background:${l.is_you?'var(--brand-50)':'var(--surface)'};border:1px solid ${l.is_you?'var(--brand-200)':'rgba(226,232,240,.9)'};border-radius:12px;box-shadow:var(--shadow-soft);padding:22px 18px">
+      <span style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;color:#fff;font-size:.75rem;font-weight:700;background:${rankBg[i]}">${i+1}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:999px;background:${t.bg};color:${t.fg};font-weight:700;font-size:1rem">${initials(l.name)}</span>
+      <span style="font-size:.9375rem;font-weight:700;color:var(--slate-900);text-align:center">${esc(l.name)} ${l.is_you?'(you)':''}</span>
+      <span style="font-size:.75rem;color:var(--slate-500)">${l.referrals} referrals</span>
+    </div>`;
+  }).join('');
+
+  const leaders=all.map((l,i)=>{
+    const t=tints[i%tints.length];
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--slate-100);background:${l.is_you?'var(--brand-50)':'transparent'}">
+      <span style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;flex-shrink:0;font-size:.75rem;font-weight:700;background:${i===0?'var(--accent-sun)':'var(--slate-100)'};color:${i===0?'#fff':'var(--slate-500)'}">${i+1}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;flex-shrink:0;background:${t.bg};color:${t.fg};font-weight:700;font-size:.75rem">${initials(l.name)}</span>
+      <span style="flex:1;font-size:.875rem;font-weight:600;color:var(--slate-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)} ${l.is_you?'(you)':''}</span>
+      <span style="font-size:.875rem;font-weight:700;color:var(--brand-600)">${l.referrals}</span>
+    </div>`;
+  }).join('');
+
+  const main=document.createElement('main');
+  main.className='bf-container';
+  main.style.cssText='padding-top:24px;padding-bottom:48px;display:flex;flex-direction:column;gap:20px';
+  main.innerHTML=`
+    <div>
+      <h1 style="margin:0;font-size:clamp(1.375rem,3vw,1.75rem);font-weight:700;color:var(--slate-900)">Team leaderboard</h1>
+      <p style="margin:6px 0 0;font-size:.875rem;color:var(--slate-500)">Top referrers across ${esc(BRAND.teamName)} this week.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">${podium}</div>
+    <div style="background:var(--surface);border:1px solid rgba(226,232,240,.9);border-radius:12px;box-shadow:var(--shadow-soft);overflow:hidden">
+      <div style="padding:18px 20px;border-bottom:1px solid var(--slate-100)"><h2 style="margin:0;font-size:.9375rem;font-weight:700;color:var(--slate-900)">Full ranking</h2></div>
+      <div style="display:flex;flex-direction:column">${leaders}</div>
+    </div>
+    <p class="disclaimer" style="margin:0">Live data from your bf-suma database. No income is guaranteed or implied.</p>`;
+  root.appendChild(main);
+}
+load();
+</script>
+</body>
+</html>
