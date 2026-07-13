@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a Session — BF Suma with Team Vitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-active="book">
+<div style="min-height:100vh;display:flex;flex-direction:column">
+  <div id="site-header"></div>
+
+  <section style="background:var(--surface-subtle);border-bottom:1px solid var(--slate-100)">
+    <div class="bf-container" style="padding-top:clamp(36px,5vw,56px);padding-bottom:clamp(36px,5vw,56px)">
+      <p class="eyebrow" style="margin-bottom:10px">Book a session</p>
+      <h1 style="margin:0;max-width:640px;font-size:clamp(1.75rem,4vw,2.5rem);font-weight:700;line-height:1.1;color:var(--slate-900)">Reserve your free training slot</h1>
+      <p style="margin:14px 0 0;max-width:560px;font-size:1rem;line-height:1.6;color:var(--slate-600)">In-person sessions with Sarah Nakato at Wellness Hub Kampala — Tuesdays, Thursdays &amp; Saturdays. No purchase required to attend.</p>
+    </div>
+  </section>
+
+  <section style="padding:48px 0 64px">
+    <div class="bf-container">
+      <div class="card" style="box-shadow:var(--shadow-card)">
+        <div id="booking-root"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+</div>
+
+<script type="module">
+import { VENUE, BRAND, isSessionDay, slotsForDate, insertBooking, openWhatsApp, esc } from './app.js';
+
+const root = document.getElementById('booking-root');
+const state = {
+  calYear:new Date().getFullYear(), calMonth:new Date().getMonth(),
+  selectedISO:null, selectedTime:null, step:'pick',
+  fName:'', fPhone:'', fEmail:'', fLocation:'Kampala Central',
+  errName:false, errPhone:false, submitting:false, booked:null, saveError:''
+};
+
+const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today = () => { const t=new Date(); t.setHours(0,0,0,0); return t; };
+const dateLabel = s => { if(!s) return ''; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-UG',{weekday:'long',month:'short',day:'numeric'}); };
+
+function buildCalendarCells(){
+  const {calYear,calMonth,selectedISO}=state;
+  const t=today(); const max=new Date(t); max.setDate(max.getDate()+45);
+  const first=new Date(calYear,calMonth,1);
+  const offset=(first.getDay()+6)%7;
+  const days=new Date(calYear,calMonth+1,0).getDate();
+  let html='';
+  for(let i=0;i<offset;i++) html+=`<span></span>`;
+  for(let d=1;d<=days;d++){
+    const date=new Date(calYear,calMonth,d); const s=iso(date);
+    const available=isSessionDay(date)&&date>=t&&date<=max;
+    const selected=s===selectedISO;
+    let style='height:40px;border-radius:8px;border:none;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:.875rem;padding:0;';
+    if(selected) style+='background:var(--brand-500);color:#fff;font-weight:700;cursor:pointer;';
+    else if(available) style+='background:var(--brand-50);color:var(--brand-700);font-weight:600;cursor:pointer;';
+    else style+=`background:transparent;color:${date<t?'var(--slate-300)':'var(--slate-400)'};`;
+    html+=`<button type="button" ${available?`data-date="${s}"`:'disabled'} aria-label="${available?'Choose ':''}${date.toDateString()}" style="${style}">${d}</button>`;
+  }
+  return html;
+}
+
+function slotsHtml(){
+  if(!state.selectedISO) return '';
+  const [y,m,d]=state.selectedISO.split('-').map(Number);
+  const raw=slotsForDate(new Date(y,m-1,d));
+  return raw.map(s=>{
+    const selected=s.time===state.selectedTime; const full=s.spots===0;
+    let style='display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;height:48px;padding:0 16px;border-radius:8px;font-family:inherit;font-size:.9375rem;font-weight:600;transition:background .15s;';
+    style+=`cursor:${full?'not-allowed':'pointer'};border:1px solid ${selected?'var(--brand-500)':'var(--slate-300)'};background:${selected?'var(--brand-500)':full?'var(--slate-50)':'#fff'};color:${selected?'#fff':full?'var(--slate-400)':'var(--slate-900)'};`;
+    const tag=full?'Full':(s.spots+(s.spots===1?' spot left':' spots left'));
+    const tagColor=full?'var(--slate-400)':selected?'rgba(255,255,255,.85)':'var(--brand-600)';
+    return `<button type="button" ${full?'disabled':`data-time="${s.time}"`} style="${style}"><span>${s.time}</span><span style="font-size:.75rem;font-weight:600;color:${tagColor}">${tag}</span></button>`;
+  }).join('');
+}
+
+function navBtn(disabled,dir,label){
+  const style=`width:32px;height:32px;border-radius:8px;border:1px solid var(--slate-200);background:#fff;display:flex;align-items:center;justify-content:center;color:${disabled?'var(--slate-300)':'var(--slate-600)'};cursor:${disabled?'default':'pointer'};`;
+  const path=dir==='prev'?'m15 18-6-6 6-6':'m9 18 6-6-6-6';
+  return `<button type="button" ${disabled?'disabled':`data-nav="${dir}"`} aria-label="${label}" style="${style}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"></path></svg></button>`;
+}
+
+function render(){
+  const now=new Date();
+  const curYM=now.getFullYear()*12+now.getMonth();
+  const calYM=state.calYear*12+state.calMonth;
+  const prevDisabled=calYM<=curYM, nextDisabled=calYM>=curYM+2;
+  const monthLabel=new Date(state.calYear,state.calMonth,1).toLocaleDateString('en-UG',{month:'long',year:'numeric'});
+
+  if(state.step==='pick'){
+    root.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:0">
+      <div style="padding:clamp(20px,3vw,32px);border-right:1px solid var(--slate-100)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h3 style="margin:0;font-size:1rem;font-weight:700;color:var(--slate-900)">${monthLabel}</h3>
+          <div style="display:flex;gap:6px">${navBtn(prevDisabled,'prev','Previous month')}${navBtn(nextDisabled,'next','Next month')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px">
+          ${['Mo','Tu','We','Th','Fr','Sa','Su'].map(x=>`<span style="text-align:center;font-size:.6875rem;font-weight:700;color:var(--slate-400);text-transform:uppercase">${x}</span>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${buildCalendarCells()}</div>
+        <p style="margin:14px 0 0;display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--slate-500)"><span style="width:10px;height:10px;border-radius:3px;background:var(--brand-100);display:inline-block"></span>Training day — tap a green date to see times</p>
+      </div>
+      <div style="padding:clamp(20px,3vw,32px);display:flex;flex-direction:column">
+        ${state.selectedISO?`
+          <h3 style="margin:0 0 4px;font-size:1rem;font-weight:700;color:var(--slate-900)">${dateLabel(state.selectedISO)}</h3>
+          <p style="margin:0 0 16px;font-size:.8125rem;color:var(--slate-500)">${VENUE.duration} · in person</p>
+          <div style="display:flex;flex-direction:column;gap:8px">${slotsHtml()}</div>
+          <div style="margin-top:18px"><button class="btn btn-primary btn-lg btn-full" type="button" data-action="continue" ${state.selectedTime?'':'disabled'}>Continue</button></div>
+        `:`
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:24px 0;color:var(--slate-400)">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>
+            <p style="margin:0;font-size:.875rem;max-width:220px;line-height:1.5">Select a date on the calendar to see available times</p>
+          </div>`}
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--slate-100);display:flex;flex-direction:column;gap:8px">
+          <span style="display:inline-flex;align-items:flex-start;gap:8px;font-size:.8125rem;color:var(--slate-600)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>${VENUE.name}, ${VENUE.address}</span>
+          <span style="display:inline-flex;align-items:flex-start;gap:8px;font-size:.8125rem;color:var(--slate-600)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>Bring a notebook, pen, and your national ID</span>
+        </div>
+      </div>
+    </div>`;
+  } else if(state.step==='form'){
+    root.innerHTML=`
+    <div style="padding:clamp(20px,3vw,32px);max-width:560px">
+      <button type="button" data-action="back" style="display:inline-flex;align-items:center;gap:6px;border:none;background:transparent;cursor:pointer;color:var(--slate-500);font-size:.8125rem;font-weight:600;padding:0;font-family:inherit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>Change date or time</button>
+      <div style="display:inline-flex;align-items:center;gap:8px;margin:14px 0 20px;background:var(--brand-50);color:var(--brand-700);border-radius:999px;padding:8px 14px;font-size:.8125rem;font-weight:600">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>
+        ${dateLabel(state.selectedISO)} · ${state.selectedTime}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="bk-name" style="font-size:.8125rem;font-weight:600;color:var(--slate-700)">Full name *</label>
+          <input id="bk-name" class="bf-input ${state.errName?'invalid':''}" value="${esc(state.fName)}" placeholder="e.g. Amina Kirabo">
+          ${state.errName?'<span role="alert" style="font-size:.75rem;color:var(--status-danger)">Please enter your name</span>':''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="bk-phone" style="font-size:.8125rem;font-weight:600;color:var(--slate-700)">Phone number *</label>
+          <input id="bk-phone" type="tel" class="bf-input ${state.errPhone?'invalid':''}" value="${esc(state.fPhone)}" placeholder="+256 7XX XXX XXX">
+          ${state.errPhone?'<span role="alert" style="font-size:.75rem;color:var(--status-danger)">Please enter a valid phone number</span>':''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="bk-email" style="font-size:.8125rem;font-weight:600;color:var(--slate-700)">Email <span style="font-weight:400;color:var(--slate-400)">(optional)</span></label>
+          <input id="bk-email" type="email" class="bf-input" value="${esc(state.fEmail)}" placeholder="you@example.com">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="bk-location" style="font-size:.8125rem;font-weight:600;color:var(--slate-700)">Where are you based?</label>
+          <select id="bk-location" class="bf-select">
+            ${['Kampala Central','Wakiso','Entebbe','Mukono','Jinja','Other'].map(o=>`<option ${o===state.fLocation?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        ${state.saveError?`<p style="margin:0;font-size:.8125rem;color:var(--status-danger)">${esc(state.saveError)}</p>`:''}
+        <div style="margin-top:4px">
+          <button class="btn btn-brand btn-lg btn-full" type="button" data-action="submit" ${state.submitting?'disabled':''}>${state.submitting?'Booking…':'Confirm Booking'}</button>
+          <p style="margin:10px 0 0;font-size:.75rem;color:var(--slate-400);text-align:center">We'll send a reminder by SMS or WhatsApp. No purchase required.</p>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    const b=state.booked;
+    root.innerHTML=`
+    <div style="padding:clamp(28px,5vw,48px);display:flex;flex-direction:column;align-items:center;text-align:center">
+      <div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:999px;background:var(--brand-50);color:var(--brand-600)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+      <h3 style="margin:18px 0 0;font-size:1.375rem;font-weight:700;color:var(--slate-900)">You're booked, ${esc(b.first)}!</h3>
+      <p style="margin:8px 0 0;max-width:400px;font-size:.9375rem;line-height:1.6;color:var(--slate-600)">We've reserved your seat. Sarah Nakato will confirm by phone before the session.</p>
+      <div style="margin-top:24px;width:100%;max-width:420px;background:var(--surface-subtle);border:1px solid var(--slate-200);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;text-align:left">
+        <span style="display:flex;align-items:center;gap:10px;font-size:.875rem;color:var(--slate-700)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg><strong style="font-weight:700;color:var(--slate-900)">${b.dateLabel}</strong>&nbsp;at&nbsp;<strong style="font-weight:700;color:var(--slate-900)">${b.time}</strong></span>
+        <span style="display:flex;align-items:flex-start;gap:10px;font-size:.875rem;color:var(--slate-700)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>${VENUE.name}, ${VENUE.address}</span>
+        <span style="display:flex;align-items:flex-start;gap:10px;font-size:.875rem;color:var(--slate-700)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>Bring a notebook, pen, and your national ID or passport</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:24px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-brand btn-md" type="button" data-action="whatsapp">Chat on WhatsApp</button>
+        <button class="btn btn-ghost btn-md" type="button" data-action="reset">Book another slot</button>
+      </div>
+    </div>`;
+  }
+  wire();
+}
+
+function syncInputs(){
+  const n=root.querySelector('#bk-name'); if(n) state.fName=n.value;
+  const p=root.querySelector('#bk-phone'); if(p) state.fPhone=p.value;
+  const e=root.querySelector('#bk-email'); if(e) state.fEmail=e.value;
+  const l=root.querySelector('#bk-location'); if(l) state.fLocation=l.value;
+}
+
+async function submit(){
+  syncInputs();
+  const errName=state.fName.trim().length<2;
+  const errPhone=state.fPhone.replace(/[^0-9]/g,'').length<9;
+  if(errName||errPhone){ state.errName=errName; state.errPhone=errPhone; render(); return; }
+  state.errName=false; state.errPhone=false; state.submitting=true; state.saveError=''; render();
+  const {error}=await insertBooking({
+    name:state.fName.trim(), phone:state.fPhone.trim(), email:state.fEmail.trim(),
+    location:state.fLocation, session_date:state.selectedISO, session_time:state.selectedTime
+  });
+  state.submitting=false;
+  if(error){ state.saveError='Could not save your booking — please try again. ('+error.message+')'; render(); return; }
+  state.booked={ first:state.fName.trim().split(' ')[0], dateLabel:dateLabel(state.selectedISO), time:state.selectedTime };
+  state.step='confirmed'; render();
+}
+
+function wire(){
+  root.querySelectorAll('[data-date]').forEach(b=>b.addEventListener('click',()=>{ state.selectedISO=b.dataset.date; state.selectedTime=null; render(); }));
+  root.querySelectorAll('[data-time]').forEach(b=>b.addEventListener('click',()=>{ state.selectedTime=b.dataset.time; render(); }));
+  root.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>{
+    const delta=b.dataset.nav==='prev'?-1:1; const d=new Date(state.calYear,state.calMonth+delta,1);
+    state.calYear=d.getFullYear(); state.calMonth=d.getMonth(); render();
+  }));
+  const cont=root.querySelector('[data-action="continue"]'); if(cont) cont.addEventListener('click',()=>{ if(state.selectedTime){ state.step='form'; render(); }});
+  const back=root.querySelector('[data-action="back"]'); if(back) back.addEventListener('click',()=>{ syncInputs(); state.step='pick'; render(); });
+  const sub=root.querySelector('[data-action="submit"]'); if(sub) sub.addEventListener('click',submit);
+  const wa=root.querySelector('[data-action="whatsapp"]'); if(wa) wa.addEventListener('click',openWhatsApp);
+  const rst=root.querySelector('[data-action="reset"]'); if(rst) rst.addEventListener('click',()=>{ Object.assign(state,{step:'pick',selectedTime:null,selectedISO:null,fName:'',fPhone:'',fEmail:'',booked:null,saveError:''}); render(); });
+  ['#bk-name','#bk-phone','#bk-email'].forEach(sel=>{ const el=root.querySelector(sel); if(el) el.addEventListener('input',syncInputs); });
+}
+
+render();
+</script>
+</body>
+</html>
