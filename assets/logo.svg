@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 40" role="img" aria-label="BF Suma">
+  <g fill="none">
+    <path d="M20 5c-6 4-10 9-10 15a10 10 0 0 0 20 0c0-6-4-11-10-15z" fill="#1E9E5A"/>
+    <path d="M20 11c-3 2.4-5 5.3-5 9a5 5 0 0 0 10 0c0-3.7-2-6.6-5-9z" fill="#9BDCB8"/>
+  </g>
+  <text x="38" y="20" font-family="'Segoe UI',system-ui,sans-serif" font-size="17" font-weight="800" fill="#0F172A" letter-spacing="0.5">BF SUMA</text>
+  <text x="38" y="32" font-family="'Segoe UI',system-ui,sans-serif" font-size="8.5" font-weight="600" fill="#178A4E" letter-spacing="2.4">WELLNESS</text>
+</svg>
