@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blog — BF Suma with Team Vitality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="assets/logo.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-active="blog">
+<div style="min-height:100vh;display:flex;flex-direction:column">
+  <div id="site-header"></div>
+
+  <section style="background:var(--surface-subtle);border-bottom:1px solid var(--slate-100)">
+    <div class="bf-container" style="padding-top:clamp(36px,5vw,56px);padding-bottom:clamp(36px,5vw,56px)">
+      <p class="eyebrow" style="margin-bottom:10px">Blog</p>
+      <h1 style="margin:0;max-width:640px;font-size:clamp(1.75rem,4vw,2.5rem);font-weight:700;line-height:1.1;color:var(--slate-900)">Wellness notes from the team</h1>
+      <p style="margin:14px 0 0;max-width:560px;font-size:1rem;line-height:1.6;color:var(--slate-600)">Simple, practical articles on everyday health — written by Sarah Nakato and Team Vitality members.</p>
+    </div>
+  </section>
+
+  <section style="padding:48px 0 0">
+    <div class="bf-container"><div id="featured"></div></div>
+  </section>
+
+  <section style="padding:40px 0 64px">
+    <div class="bf-container">
+      <h2 style="margin:0 0 24px;font-size:1.25rem;font-weight:700;color:var(--slate-900)">Latest articles</h2>
+      <div id="grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px"></div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+</div>
+
+<script type="module">
+import { BLOG_POSTS } from './app.js';
+const featured = BLOG_POSTS.find(p=>p.featured) || BLOG_POSTS[0];
+const rest = BLOG_POSTS.filter(p=>p!==featured);
+const readLabel = m => m+' min read';
+
+document.getElementById('featured').innerHTML = `
+  <article class="card hover-lift" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0">
+    <div class="media ${featured.media}" style="position:relative;min-height:240px"><div class="media-pattern"></div></div>
+    <div style="padding:clamp(24px,4vw,40px);display:flex;flex-direction:column;justify-content:center">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:.6875rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand-700);background:var(--brand-50);border-radius:999px;padding:4px 10px">Featured</span>
+        <span style="font-size:.75rem;font-weight:600;color:var(--slate-500)">${featured.category}</span>
+      </div>
+      <h2 style="margin:14px 0 0;font-size:clamp(1.375rem,3vw,1.75rem);font-weight:700;line-height:1.15;color:var(--slate-900)">${featured.title}</h2>
+      <p style="margin:12px 0 0;font-size:.9375rem;line-height:1.6;color:var(--slate-600)">${featured.excerpt}</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:20px;font-size:.8125rem;color:var(--slate-500)">
+        <span style="font-weight:600;color:var(--slate-700)">${featured.author}</span><span>·</span><span>${featured.date}</span><span>·</span><span>${readLabel(featured.readMins)}</span>
+      </div>
+      <div style="margin-top:22px"><button class="btn btn-primary btn-md" type="button" onclick="alert('Full article coming soon in this demo build.')">Read Article</button></div>
+    </div>
+  </article>`;
+
+document.getElementById('grid').innerHTML = rest.map(p=>`
+  <article class="card hover-lift" style="display:flex;flex-direction:column">
+    <div class="media ${p.media}" style="position:relative;height:170px"><div class="media-pattern"></div>
+      <span style="position:absolute;top:12px;left:12px;font-size:.6875rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--slate-900);background:rgba(255,255,255,.92);border-radius:999px;padding:4px 10px">${p.category}</span>
+    </div>
+    <div style="padding:18px;display:flex;flex-direction:column;flex:1">
+      <h3 style="margin:0;font-size:1.0625rem;font-weight:700;line-height:1.25;color:var(--slate-900)">${p.title}</h3>
+      <p style="margin:8px 0 0;font-size:.8125rem;line-height:1.55;color:var(--slate-600)">${p.excerpt}</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--slate-100);font-size:.75rem;color:var(--slate-500)">
+        <span style="font-weight:600;color:var(--slate-700)">${p.author}</span><span>·</span><span>${p.date}</span>
+        <span style="margin-left:auto;font-weight:600;color:var(--slate-400)">${readLabel(p.readMins)}</span>
+      </div>
+    </div>
+  </article>`).join('');
+</script>
+</body>
+</html>
